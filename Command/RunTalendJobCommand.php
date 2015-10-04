@@ -193,7 +193,7 @@ class RunTalendJobCommand extends ContainerAwareCommand
      */
     protected function getCommandName()
     {
-        return 'talend-runner:talend:run';
+        return 'talend:job:run';
     }
 
     /**
