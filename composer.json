@@ -1,0 +1,29 @@
+{
+  "name": "aaugustyniak/sf-talend-runner-bundle",
+  "type": "symfony-bundle",
+  "description": "Symfony2 bundle for running Talend jobs.",
+  "keywords": [],
+  "homepage": "https://github.com/artur-augustyniak/SfTalendRunnerBundle",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Artur Augustyniak",
+      "email": "artur@aaugustyniak.pl",
+      "homepage": "https://github.com/artur-augustyniak",
+      "role": "Developer"
+    }
+  ],
+  "require": {
+    "symfony/framework-bundle": "2.*",
+    "aaugustyniak/semithread": "1.0.0"
+  },
+  "require-dev": {
+    "phpunit/phpunit": ">=3.7"
+  },
+  "autoload": {
+    "psr-0": {
+      "Aaugustyniak\\SfTalendRunnerBundle": ""
+    }
+  },
+  "target-dir": "Aaugustyniak/SfTalendRunnerBundle"
+}
