@@ -48,6 +48,11 @@ class JobExtractor
     private $jobZipPath;
 
     /**
+     * @var Zip Talend job zip
+     */
+    private $zip;
+
+    /**
      * Usage namespace ma zapobiegać rzucaniu wyjatku
      * przy napotkaniu rozpakowanego folderu o nazwie joba
      * czyli sytuacja kiedy coś przerwalo joba, rozpakowany nie
@@ -94,18 +99,32 @@ class JobExtractor
         $this->checkCleanupValidity();
         $this->validateJobZip();
 
+        $jobName = substr(basename(realpath($this->jobZipPath)), 0, -4);
+        $extractedFolder = $this->getWorkspacePath() . DIRECTORY_SEPARATOR . $jobName;
 
-        $this->extracted = true;
-
-        $jobName = "NonContextSuccessfullJob_0.1";
-
-        $dirPath = $this->workspacePath . DIRECTORY_SEPARATOR . $jobName;
-        if (file_exists($dirPath)) {
+        if (file_exists($extractedFolder)) {
             $msg = sprintf(ISE::JOB_FOLDER_EXIST_MSG, $jobName);
             throw new ISE($msg, ISE::JOB_FOLDER_EXIST_CODE);
         }
-        mkdir($dirPath, 0700);
-        return $dirPath;
+
+        $this->zip = new Zip();
+        $res = $this->zip->open($this->jobZipPath, Zip::CHECKCONS);
+        if ($res === TRUE) {
+
+            $this->zip->extractTo($extractedFolder);
+            $this->zip->close();
+        }
+//        switch ($res) {
+//            case Zip::ER_NOZIP :
+//                throw new ISE('not a zip archive', ISE::JOB_ZIP_CORRUPTED_CODE);
+//
+//            case Zip::ER_INCONS :
+//                throw new ISE('consistency check failed', ISE::JOB_ZIP_CORRUPTED_CODE);
+//            case Zip::ER_CRC :
+//                throw new ISE('checksum failed', ISE::JOB_ZIP_CORRUPTED_CODE);
+//        }
+        $this->extracted = true;
+        return $extractedFolder;
 
     }
 
@@ -188,23 +207,6 @@ class JobExtractor
             );
             throw new ISE($msg, ISE::JOB_ZIP_CORRUPTED_CODE);
         }
-
-//        $zip = new Zip();
-//
-//        // ZipArchive::CHECKCONS will enforce additional consistency checks
-//        $res = $zip->open($this->jobZipPath, \ZipArchive::CHECKCONS);
-//        switch ($res) {
-//
-//            case Zip::ER_NOZIP :
-//                die('not a zip archive');
-//            case Zip::ER_INCONS :
-//                die('consistency check failed');
-//            case Zip::ER_CRC :
-//                die('checksum failed');
-//
-//            // ... check for the other types of errors listed in the manual
-//        }
     }
-
 
 }

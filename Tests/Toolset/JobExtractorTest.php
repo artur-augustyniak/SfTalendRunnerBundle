@@ -81,7 +81,7 @@ class JobExtractorTest extends TestCase
     /**
      * @afterClass
      */
-    public static function afterAllTests()
+    public function afterAllTests()
     {
         self::delTree(self::$testWorkspace);
     }
