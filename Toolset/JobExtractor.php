@@ -25,6 +25,7 @@
 namespace Aaugustyniak\SfTalendRunnerBundle\Toolset;
 
 use Aaugustyniak\SfTalendRunnerBundle\Toolset\IllegalStateException as ISE;
+use \ZipArchive as Zip;
 
 /**
  * Class JobExtractor
@@ -33,6 +34,8 @@ use Aaugustyniak\SfTalendRunnerBundle\Toolset\IllegalStateException as ISE;
  */
 class JobExtractor
 {
+    const JOB_ZIP_PATTERN = '/^[A-Za-z]+_\d+\.\d+\.zip$/';
+    const EXTRACTED_JOB_FOLDER_PATTERN = '/^[A-Za-z]+_\d+\.\d+$/';
 
     private $extracted = false;
 
@@ -67,7 +70,7 @@ class JobExtractor
      */
     public function getWorkspacePath()
     {
-        $this->checkValidity();
+        $this->checkCleanupValidity();
         return $this->workspacePath;
     }
 
@@ -77,7 +80,8 @@ class JobExtractor
      */
     public function setWorkspacePath($workspacePath)
     {
-        $this->checkValidity();
+        $this->checkCleanupValidity();
+        $this->checkExtractValidity();
         $this->workspacePath = $workspacePath;
     }
 
@@ -87,9 +91,21 @@ class JobExtractor
      */
     public function extractJob()
     {
-        $this->checkValidity();
+        $this->checkCleanupValidity();
+        $this->validateJobZip();
+
+
         $this->extracted = true;
-        return "path to extracted job";
+
+        $jobName = "NonContextSuccessfullJob_0.1";
+
+        $dirPath = $this->workspacePath . DIRECTORY_SEPARATOR . $jobName;
+        if (file_exists($dirPath)) {
+            $msg = sprintf(ISE::JOB_FOLDER_EXIST_MSG, $jobName);
+            throw new ISE($msg, ISE::JOB_FOLDER_EXIST_CODE);
+        }
+        mkdir($dirPath, 0700);
+        return $dirPath;
 
     }
 
@@ -116,7 +132,7 @@ class JobExtractor
      */
     public function getUsageNamespace()
     {
-        $this->checkValidity();
+        $this->checkCleanupValidity();
         return $this->usageNamespace;
     }
 
@@ -126,18 +142,68 @@ class JobExtractor
      */
     public function getJobZipPath()
     {
-        $this->checkValidity();
+        $this->checkCleanupValidity();
         return $this->jobZipPath;
     }
 
     /**
      * @throws IllegalStateException
      */
-    private function checkValidity()
+    private function checkCleanupValidity()
     {
         if ($this->cleanedUp) {
             throw new ISE(ISE::POST_CLEANUP_MSG, ISE::POST_CLEANUP_CODE);
         }
+    }
+
+
+    /**
+     * @throws IllegalStateException
+     */
+    private function checkExtractValidity()
+    {
+        if ($this->extracted) {
+            throw new ISE(ISE::POST_EXTRACT_MSG, ISE::POST_EXTRACT_CODE);
+        }
+    }
+
+    /**
+     * @throws IllegalStateException
+     */
+    private function validateJobZip()
+    {
+        $inputJobName = basename($this->jobZipPath);
+        if (!preg_match(self::JOB_ZIP_PATTERN, $inputJobName) > 0) {
+            $msg = sprintf(ISE::JOB_ZIP_CORRUPTED_MSG,
+                $inputJobName,
+                "do not match Talend jobs naming convention"
+            );
+            throw new ISE($msg, ISE::JOB_ZIP_CORRUPTED_CODE);
+        }
+
+        if (!file_exists($this->jobZipPath)) {
+            $msg = sprintf(ISE::JOB_ZIP_CORRUPTED_MSG,
+                $this->jobZipPath,
+                "do not exist"
+            );
+            throw new ISE($msg, ISE::JOB_ZIP_CORRUPTED_CODE);
+        }
+
+//        $zip = new Zip();
+//
+//        // ZipArchive::CHECKCONS will enforce additional consistency checks
+//        $res = $zip->open($this->jobZipPath, \ZipArchive::CHECKCONS);
+//        switch ($res) {
+//
+//            case Zip::ER_NOZIP :
+//                die('not a zip archive');
+//            case Zip::ER_INCONS :
+//                die('consistency check failed');
+//            case Zip::ER_CRC :
+//                die('checksum failed');
+//
+//            // ... check for the other types of errors listed in the manual
+//        }
     }
 
 

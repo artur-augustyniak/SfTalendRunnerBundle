@@ -33,11 +33,24 @@ use \Exception as Ex;
  */
 class IllegalStateException extends Ex
 {
+
+    const POST_EXTRACT_CODE = 9;
+    const POST_EXTRACT_MSG = "You can't call any setter method after extractJob()";
+
     const PRE_CLEANUP_CODE = 10;
     const PRE_CLEANUP_MSG = "You can't call cleanup() before extractJob()";
 
     const POST_CLEANUP_CODE = 11;
     const POST_CLEANUP_MSG = "You can't call any other method after cleanup()";
+
+    const JOB_FOLDER_EXIST_CODE = 12;
+    const JOB_FOLDER_EXIST_MSG = "Job folder %s exists. Something went wrong at last run or " .
+                                 "You have some namespacing issues if other system is using " .
+                                 "this bundle and same Talend jobs at this machine.";
+
+    const JOB_ZIP_CORRUPTED_CODE = 13;
+    const JOB_ZIP_CORRUPTED_MSG = "%s %s.";
+
 
     public function __construct($message = "", $code = 0, Ex $previous = null)
     {

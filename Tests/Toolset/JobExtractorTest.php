@@ -39,30 +39,51 @@ class JobExtractorTest extends TestCase
 {
 
     const TEST_USAGE_NAMESPACE = "some_namespace";
-    const TEST_JOB_ZIP_PATH = __DIR__ . "../sample_jobs/NonContextSuccessfullJob_0.1.zip";
+    const EXTRACTED_JOB_FOLDER_NAME = "NonContextSuccessfullJob_0.1";
+    const TEST_JOB_ZIP_PATH = __DIR__ . "/../sample_jobs/NonContextSuccessfullJob_0.1.zip";
+    const TEST_NONEXISTENT_JOB_ZIP_PATH = __DIR__ . "/../sample_jobs/BlahJob_0.1.zip";
+    const TEST_CORRUPTED_JOB_ZIP_PATH = __DIR__ . "/../sample_jobs/NonContextSuccessfullJob_0_BLAH_.zip";
 
     /**
      * @var JobExtractor
      */
     private $jex;
 
+    private static $testWorkspace;
+
+
     /**
      * @before
      */
-    protected function beforeEachTest()
+    public function beforeEachTest()
     {
-        $this->jex = new JobExtractor(
-            self::TEST_USAGE_NAMESPACE,
-            self::TEST_JOB_ZIP_PATH
+        self::prepareCleanWorkspace();
+        $this->createExtractorInstance(self::TEST_USAGE_NAMESPACE,
+            self::TEST_JOB_ZIP_PATH,
+            self::$testWorkspace
         );
     }
 
     /**
-     * @test
+     * @param $namespace
+     * @param $zipPath
+     * @param $workspace
      */
-    public function cannot_create_if_folder_exists()
+    private function createExtractorInstance($namespace, $zipPath, $workspace)
     {
-        $this->markTestSkipped("stub");
+        $this->jex = new JobExtractor(
+            $namespace,
+            $zipPath
+        );
+        $this->jex->setWorkspacePath($workspace);
+    }
+
+    /**
+     * @afterClass
+     */
+    public static function afterAllTests()
+    {
+        self::delTree(self::$testWorkspace);
     }
 
     /**
@@ -84,11 +105,35 @@ class JobExtractorTest extends TestCase
         $this->jex->extractJob();
         $this->jex->cleanup();
 
-        $class = new RC('Aaugustyniak\SfTalendRunnerBundle\Toolset\JobExtractor');
-        $methods = array_filter($class->getMethods(RM::IS_PUBLIC), function ($rm) {
+
+        $filter = function ($rm) {
             $excludes = array('__construct', 'cleanup');
             return !in_array($rm->name, $excludes);
-        });
+        };
+        $this->assertExceptions($filter, IllegalStateException::POST_CLEANUP_CODE);
+    }
+
+    /**
+     * @test
+     */
+    public function after_extract_setters_are_illegal()
+    {
+        $extractedJobPath = $this->jex->extractJob();
+
+        $filter = function ($reflectMet) {
+            $excludes = array('__construct', 'cleanup');
+            return "set" === substr($reflectMet->name, 0, 3) && !in_array($reflectMet->name, $excludes);
+        };
+
+        $this->assertExceptions($filter, IllegalStateException::POST_EXTRACT_CODE);
+        $this->assertNotNull($extractedJobPath);
+    }
+
+
+    private function assertExceptions($methodFilter, $expectedCode)
+    {
+        $class = new RC('Aaugustyniak\SfTalendRunnerBundle\Toolset\JobExtractor');
+        $methods = array_filter($class->getMethods(RM::IS_PUBLIC), $methodFilter);
         $exceptions = array();
         foreach ($methods as $m) {
             /** @var $m \ReflectionMethod */
@@ -106,19 +151,89 @@ class JobExtractorTest extends TestCase
         $this->assertEquals($expectedExceptionCount, $actualExceptionCount);
 
         foreach ($exceptions as $ex) {
-            $this->assertEquals(IllegalStateException::POST_CLEANUP_CODE, $ex->getCode());
+            $this->assertEquals($expectedCode, $ex->getCode());
         }
-
-
     }
 
     /**
      * @test
-     * @expectedException \Aaugustyniak\SfTalendRunnerBundle\Toolset\IllegalStateException
      */
-    public function after_extract_setters_are_illegal()
+    public function extract_creates_and_returns_existing_directory_with_name_pattern()
     {
-        $this->markTestSkipped("stub");
+        $extractedJobPath = $this->jex->extractJob();
+        $jobFolderName = basename($extractedJobPath);
+        $this->assertFileExists($extractedJobPath);
+        $this->assertTrue(is_dir($extractedJobPath));
+        $this->assertRegExp(JobExtractor::EXTRACTED_JOB_FOLDER_PATTERN, $jobFolderName);
+    }
+
+
+    /**
+     * @test
+     * @expectedException \Aaugustyniak\SfTalendRunnerBundle\Toolset\IllegalStateException
+     * @expectedExceptionCode \Aaugustyniak\SfTalendRunnerBundle\Toolset\IllegalStateException::JOB_ZIP_CORRUPTED_CODE
+     */
+    public function extract_fails_when_job_zip_name_do_not_match_pattern()
+    {
+        $this->createExtractorInstance(self::TEST_USAGE_NAMESPACE,
+            self::TEST_CORRUPTED_JOB_ZIP_PATH,
+            self::$testWorkspace
+        );
+        $this->jex->extractJob();
+    }
+
+
+    /**
+     * @test
+     * @expectedException \Aaugustyniak\SfTalendRunnerBundle\Toolset\IllegalStateException
+     * @expectedExceptionCode \Aaugustyniak\SfTalendRunnerBundle\Toolset\IllegalStateException::JOB_ZIP_CORRUPTED_CODE
+     */
+    public function extract_fails_when_job_zip_name_do_not_exist()
+    {
+        $this->createExtractorInstance(self::TEST_USAGE_NAMESPACE,
+            self::TEST_NONEXISTENT_JOB_ZIP_PATH,
+            self::$testWorkspace
+        );
+        $this->jex->extractJob();
+    }
+
+
+
+    /**
+     * @test
+     * @expectedException \Aaugustyniak\SfTalendRunnerBundle\Toolset\IllegalStateException
+     * @expectedExceptionCode \Aaugustyniak\SfTalendRunnerBundle\Toolset\IllegalStateException::JOB_FOLDER_EXIST_CODE
+     */
+    public function extract_fails_when_job_path_exists()
+    {
+        mkdir(self::$testWorkspace . DIRECTORY_SEPARATOR . self::EXTRACTED_JOB_FOLDER_NAME);
+        $this->jex->extractJob();
+    }
+
+    private static function prepareCleanWorkspace()
+    {
+        self::$testWorkspace = sys_get_temp_dir() . DIRECTORY_SEPARATOR . "job_extractor_test";
+        self::delTree(self::$testWorkspace);
+        mkdir(self::$testWorkspace, 0700);
+    }
+
+    private static function delTree($path)
+    {
+        if (file_exists($path)) {
+            $dir = opendir($path);
+            while (false !== ($file = readdir($dir))) {
+                if (($file != '.') && ($file != '..')) {
+                    $full = $path . '/' . $file;
+                    if (is_dir($full)) {
+                        self::delTree($full);
+                    } else {
+                        unlink($full);
+                    }
+                }
+            }
+            closedir($dir);
+            rmdir($path);
+        }
     }
 
 }
