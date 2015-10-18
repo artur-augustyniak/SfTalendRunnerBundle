@@ -30,14 +30,14 @@ namespace Aaugustyniak\SfTalendRunnerBundle\Model;
 abstract class Job
 {
 
-    private function __construct(){
+    private function __construct()
+    {
 
     }
 
     private $name;
 
     private $purpouse;
-
 
     private $descrition;
 
@@ -47,9 +47,6 @@ abstract class Job
      * @var JobStatus
      */
     private $status;
-
-
-
 
 
     public function runJob()
